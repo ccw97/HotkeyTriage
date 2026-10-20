@@ -67,10 +67,12 @@ public sealed class ProcessController : IProcessController
             return null;
         try
         {
+            // UseShellExecute=true 让 Shell 决定启动方式，
+            // 对带 manifest / 需要关联的 exe 更稳（如微信、UWP 包装器）
             var psi = new ProcessStartInfo
             {
                 FileName = path,
-                UseShellExecute = false,
+                UseShellExecute = true,
             };
             if (!string.IsNullOrEmpty(args))
                 psi.Arguments = args;

@@ -92,10 +92,11 @@ public sealed class DeepScanner
                 remaining = stillTaken;
             }
 
-            // 立即恢复
-            if (!string.IsNullOrEmpty(proc.FullPath))
-                _ctrl.Restore(proc.FullPath);
-            _store.MarkRestored(snapId);
+            // 立即恢复；失败则保留快照为未恢复（启动时会提示用户手动恢复）
+            var restored = !string.IsNullOrEmpty(proc.FullPath)
+                && _ctrl.Restore(proc.FullPath) != null;
+            if (restored)
+                _store.MarkRestored(snapId);
         }
 
         return new DeepScanResult

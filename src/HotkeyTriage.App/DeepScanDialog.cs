@@ -30,9 +30,10 @@ public sealed class DeepScanDialog : Form
         MaximizeBox = false; MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
 
-        _hint.Text = "将临时关闭勾选的程序，扫描完成后自动恢复。\r\n" +
-                     "有窗口的默认不勾选（可能有未保存内容）。\r\n" +
+        _hint.Text = "[!] 将临时关闭勾选的程序，扫描完成后自动恢复。\r\n" +
+                     "有窗口的默认不勾选（关闭会中断你正在做的事，请谨慎勾选）。\r\n" +
                      "explorer.exe 与反作弊进程不会出现在列表中。";
+        _hint.ForeColor = Color.FromArgb(180, 60, 40);
 
         var btnBar = new Panel { Dock = DockStyle.Bottom, Height = 40 };
         _ok.Dock = DockStyle.Left;

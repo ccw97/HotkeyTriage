@@ -32,6 +32,15 @@ public sealed class MainForm : Form
         Text = "HotkeyTriage 全局热键管理器";
         Width = 900; Height = 600;
         StartPosition = FormStartPosition.CenterScreen;
+        Font = new Font("Segoe UI", 9F);
+        BackColor = Color.FromArgb(248, 248, 248);
+        _topBar.BackColor = Color.FromArgb(240, 240, 240);
+        _sysTree.Font = Font;
+        _appTree.Font = Font;
+        _status.Font = Font;
+        _deepScanBtn.FlatStyle = FlatStyle.Flat;
+        _deepScanBtn.BackColor = Color.FromArgb(0, 120, 215);
+        _deepScanBtn.ForeColor = Color.White;
 
         _deepScanBtn.Click += OnDeepScan;
         _topBar.Controls.Add(_status);
@@ -155,15 +164,17 @@ public sealed class MainForm : Form
         {
             var proc = _lastCandidates.FirstOrDefault(p => p.Pid == kv.Key);
             var name = proc?.ExeName ?? $"PID {kv.Key}";
-            var node = _appTree.Nodes.Add($"{name}  [运行中]");
+            var node = _appTree.Nodes.Add($"{name}  [PID {kv.Key}]");
             node.Tag = kv.Key;
             node.ToolTipText = proc?.FullPath ?? "";
             foreach (var key in kv.Value)
-                node.Nodes.Add(KeyCombo.Format(key.Mods, key.Vk));
+                node.Nodes.Add($"{KeyCombo.Format(key.Mods, key.Vk)}  →  {name}");
         }
         if (result.Unattributed.Count > 0)
         {
             var unk = _appTree.Nodes.Add($"无法归因 ({result.Unattributed.Count})");
+            unk.Nodes.Add("占用者可能在未勾选的进程中（有窗口的默认未勾选）");
+            unk.Nodes.Add("建议：重新深扫，勾选更多进程");
             foreach (var key in result.Unattributed)
                 unk.Nodes.Add(KeyCombo.Format(key.Mods, key.Vk));
         }
