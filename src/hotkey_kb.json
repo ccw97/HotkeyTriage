@@ -1,0 +1,283 @@
+{
+  "_comment": "热键知识库：进程可执行文件名(小写) -> 已知全局热键与处置方式。P0 内置约 40 条，覆盖国内玩家高频后台软件。",
+  "_schema": {
+    "vendor": "厂商",
+    "hotkeys": "该软件默认注册的全局热键组合（标准写法：Ctrl+Alt+A）",
+    "category": "social | ime | gpu | game | capture | input | oem | voice | accel",
+    "disable_hint": "在软件内关闭该热键的路径",
+    "safe_to_kill": "结束时是否会丢失用户数据",
+    "restart_after_game": "是否建议游戏后自动重启"
+  },
+  "wechat.exe": {
+    "vendor": "腾讯",
+    "hotkeys": ["Alt+A"],
+    "category": "social",
+    "disable_hint": "设置 → 快捷按键 → 截屏快捷键",
+    "safe_to_kill": true,
+    "restart_after_game": true
+  },
+  "weixin.exe": {
+    "vendor": "腾讯",
+    "hotkeys": ["Alt+A"],
+    "category": "social",
+    "disable_hint": "设置 → 快捷键 → 截屏",
+    "safe_to_kill": true,
+    "restart_after_game": true
+  },
+  "qq.exe": {
+    "vendor": "腾讯",
+    "hotkeys": ["Ctrl+Alt+A"],
+    "category": "social",
+    "disable_hint": "设置 → 快捷按键 → 截图",
+    "safe_to_kill": true,
+    "restart_after_game": true
+  },
+  "tim.exe": {
+    "vendor": "腾讯",
+    "hotkeys": ["Ctrl+Alt+A"],
+    "category": "social",
+    "disable_hint": "设置 → 快捷按键 → 截图",
+    "safe_to_kill": true,
+    "restart_after_game": true
+  },
+  "wxwork.exe": {
+    "vendor": "腾讯",
+    "hotkeys": ["Ctrl+Alt+A"],
+    "category": "social",
+    "disable_hint": "设置 → 快捷键 → 截图",
+    "safe_to_kill": true,
+    "restart_after_game": true
+  },
+  "dingtalk.exe": {
+    "vendor": "阿里",
+    "hotkeys": ["Ctrl+Shift+A"],
+    "category": "social",
+    "disable_hint": "设置 → 快捷键 → 截图",
+    "safe_to_kill": true,
+    "restart_after_game": true
+  },
+  "feishu.exe": {
+    "vendor": "字节",
+    "hotkeys": ["Ctrl+Shift+A"],
+    "category": "social",
+    "disable_hint": "设置 → 快捷键",
+    "safe_to_kill": true,
+    "restart_after_game": true
+  },
+  "sogoucloud.exe": {
+    "vendor": "搜狗",
+    "hotkeys": ["Ctrl+Shift", "Ctrl+Space"],
+    "category": "ime",
+    "disable_hint": "输入法属性 → 按键 → 切换方式",
+    "safe_to_kill": false,
+    "restart_after_game": false
+  },
+  "sgtool.exe": {
+    "vendor": "搜狗",
+    "hotkeys": ["Ctrl+Shift"],
+    "category": "ime",
+    "disable_hint": "输入法属性 → 按键",
+    "safe_to_kill": false,
+    "restart_after_game": false
+  },
+  "nvsphelper64.exe": {
+    "vendor": "NVIDIA",
+    "hotkeys": ["Alt+Z", "Alt+F1", "Alt+R"],
+    "category": "gpu",
+    "disable_hint": "GeForce Experience → 设置 → 游戏内覆盖 → 关闭",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "nvidia app.exe": {
+    "vendor": "NVIDIA",
+    "hotkeys": ["Alt+Z"],
+    "category": "gpu",
+    "disable_hint": "NVIDIA App → 设置 → 游戏内覆盖 → 关闭",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "amdrsserv.exe": {
+    "vendor": "AMD",
+    "hotkeys": ["Alt+R"],
+    "category": "gpu",
+    "disable_hint": "Radeon 软件 → 设置 → 游戏内覆盖 → 禁用热键",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "steam.exe": {
+    "vendor": "Valve",
+    "hotkeys": ["Shift+Tab"],
+    "category": "game",
+    "disable_hint": "Steam → 设置 → 游戏中 → 启用 Steam 界面",
+    "safe_to_kill": false,
+    "restart_after_game": false
+  },
+  "gamebar.exe": {
+    "vendor": "Microsoft",
+    "hotkeys": ["Win+G"],
+    "category": "capture",
+    "disable_hint": "设置 → 游戏 → Xbox Game Bar → 关闭",
+    "safe_to_kill": false,
+    "restart_after_game": false
+  },
+  "gamebarftserver.exe": {
+    "vendor": "Microsoft",
+    "hotkeys": ["Win+G"],
+    "category": "capture",
+    "disable_hint": "设置 → 游戏 → Xbox Game Bar → 关闭",
+    "safe_to_kill": false,
+    "restart_after_game": false
+  },
+  "obs64.exe": {
+    "vendor": "OBS",
+    "hotkeys": [],
+    "category": "capture",
+    "disable_hint": "OBS → 设置 → 快捷键 → 清除冲突项",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "snipaste.exe": {
+    "vendor": "Snipaste",
+    "hotkeys": ["F1", "F3"],
+    "category": "capture",
+    "disable_hint": "托盘右键 → 首选项 → 快捷键",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "pixpin.exe": {
+    "vendor": "PixPin",
+    "hotkeys": ["F1"],
+    "category": "capture",
+    "disable_hint": "设置 → 快捷键",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "bandicam.exe": {
+    "vendor": "Bandicam",
+    "hotkeys": ["F12"],
+    "category": "capture",
+    "disable_hint": "设置 → 快捷键",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "discord.exe": {
+    "vendor": "Discord",
+    "hotkeys": ["Shift+Tab"],
+    "category": "voice",
+    "disable_hint": "设置 → 游戏活动 → 覆盖层 → 关闭",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "yy.exe": {
+    "vendor": "YY",
+    "hotkeys": ["Ctrl+Alt+W"],
+    "category": "voice",
+    "disable_hint": "设置 → 热键 → 关闭自由说话",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "kook.exe": {
+    "vendor": "KOOK",
+    "hotkeys": ["Ctrl+Shift+M"],
+    "category": "voice",
+    "disable_hint": "设置 → 按键说话 → 关闭",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "listary.exe": {
+    "vendor": "Listary",
+    "hotkeys": ["Ctrl+Space"],
+    "category": "input",
+    "disable_hint": "设置 → 热键",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "powertoys.exe": {
+    "vendor": "Microsoft",
+    "hotkeys": ["Alt+Space"],
+    "category": "input",
+    "disable_hint": "PowerToys → 键盘管理器 → 关闭冲突项",
+    "safe_to_kill": false,
+    "restart_after_game": false
+  },
+  "everythings.exe": {
+    "vendor": "voidtools",
+    "hotkeys": ["Ctrl+Alt+Space"],
+    "category": "input",
+    "disable_hint": "选项 → 快捷键",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "lenovovantage.exe": {
+    "vendor": "Lenovo",
+    "hotkeys": ["Ctrl+Alt+F12"],
+    "category": "oem",
+    "disable_hint": "Vantage → 设备 → 智能热键 → 关闭",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "armourycrate.exe": {
+    "vendor": "ASUS",
+    "hotkeys": ["Ctrl+Alt+F12"],
+    "category": "oem",
+    "disable_hint": "Armoury Crate → 快捷键设置",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "msicenter.exe": {
+    "vendor": "MSI",
+    "hotkeys": ["Ctrl+Shift+F12"],
+    "category": "oem",
+    "disable_hint": "MSI Center → 热键设置",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "uu.exe": {
+    "vendor": "网易UU",
+    "hotkeys": ["Ctrl+Alt+F1"],
+    "category": "accel",
+    "disable_hint": "加速器 → 设置 → 快捷键",
+    "safe_to_kill": false,
+    "restart_after_game": false
+  },
+  "xunyou.exe": {
+    "vendor": "迅游",
+    "hotkeys": ["Ctrl+Alt+F1"],
+    "category": "accel",
+    "disable_hint": "加速器 → 设置 → 快捷键",
+    "safe_to_kill": false,
+    "restart_after_game": false
+  },
+  "cloudmusic.exe": {
+    "vendor": "网易",
+    "hotkeys": ["Ctrl+Alt+M"],
+    "category": "social",
+    "disable_hint": "设置 → 快捷键 → 全局",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "foxitreader.exe": {
+    "vendor": "Foxit",
+    "hotkeys": ["Ctrl+Shift+F12"],
+    "category": "input",
+    "disable_hint": "设置 → 快捷键",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "autohotkey.exe": {
+    "vendor": "AutoHotkey",
+    "hotkeys": ["*"],
+    "category": "input",
+    "disable_hint": "脚本内部定义，需退出脚本",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  },
+  "autohotkey64.exe": {
+    "vendor": "AutoHotkey",
+    "hotkeys": ["*"],
+    "category": "input",
+    "disable_hint": "脚本内部定义，需退出脚本",
+    "safe_to_kill": true,
+    "restart_after_game": false
+  }
+}

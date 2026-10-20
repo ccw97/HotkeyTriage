@@ -1,0 +1,19 @@
+# 依赖与构建产物
+bin/
+obj/
+dist/
+*.user
+.vs/
+*.suo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# 系统
+Thumbs.db
+.DS_Store
+
+# 工具本地状态
+.workbuddy/memory/
