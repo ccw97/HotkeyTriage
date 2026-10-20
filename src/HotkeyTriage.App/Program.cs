@@ -10,12 +10,6 @@ internal static class Program
     private static void Main()
     {
         ApplicationConfiguration.Initialize();
-        // M1 阶段先不实现 UI，只占位
-        System.Windows.Forms.MessageBox.Show(
-            "HotkeyTriage 骨架已启动（管理员权限已获取）。\n" +
-            "UI 待 M5 实现。",
-            "HotkeyTriage",
-            System.Windows.Forms.MessageBoxButtons.OK,
-            System.Windows.Forms.MessageBoxIcon.Information);
+        Application.Run(new MainForm());
     }
 }

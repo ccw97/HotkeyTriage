@@ -1,0 +1,196 @@
+using System.Drawing;
+using System.Windows.Forms;
+using HotkeyTriage.Core.Act;
+using HotkeyTriage.Core.Attribute;
+using HotkeyTriage.Core.Discover;
+using HotkeyTriage.Core.Probe;
+
+namespace HotkeyTriage.App;
+
+/// <summary>
+/// 主窗口：双 Tab 树状视图 + 快扫/深扫 + 禁用/恢复。
+/// </summary>
+public sealed class MainForm : Form
+{
+    private readonly TabControl _tabs = new() { Dock = DockStyle.Fill };
+    private readonly TreeView _sysTree = new() { Dock = DockStyle.Fill };
+    private readonly TreeView _appTree = new() { Dock = DockStyle.Fill };
+    private readonly Panel _topBar = new() { Dock = DockStyle.Top, Height = 40 };
+    private readonly Button _deepScanBtn = new() { Text = "深度扫描", Width = 100 };
+    private readonly Label _status = new() { Text = "就绪", Dock = DockStyle.Fill };
+
+    private readonly HotkeyProbe _probe = new();
+    private readonly ProcessScanner _procScanner = new();
+    private readonly ProcessController _ctrl = new();
+    private readonly DisabledListStore _store = new();
+
+    private HotkeyMap? _map;
+    private List<ProcInfo> _lastCandidates = new();
+
+    public MainForm()
+    {
+        Text = "HotkeyTriage 全局热键管理器";
+        Width = 900; Height = 600;
+        StartPosition = FormStartPosition.CenterScreen;
+
+        _deepScanBtn.Click += OnDeepScan;
+        _topBar.Controls.Add(_status);
+        _topBar.Controls.Add(_deepScanBtn);
+        _deepScanBtn.Dock = DockStyle.Left;
+
+        var sysTab = new TabPage("Windows 自带") { Dock = DockStyle.Fill };
+        sysTab.Controls.Add(_sysTree);
+        var appTab = new TabPage("其他应用") { Dock = DockStyle.Fill };
+        appTab.Controls.Add(_appTree);
+        _tabs.TabPages.Add(sysTab);
+        _tabs.TabPages.Add(appTab);
+
+        Controls.Add(_tabs);
+        Controls.Add(_topBar);
+
+        _appTree.NodeMouseDoubleClick += OnAppNodeDoubleClick;
+
+        Load += async (_, _) => await QuickScanAsync();
+    }
+
+    private async Task QuickScanAsync()
+    {
+        _status.Text = "快扫中…";
+        _deepScanBtn.Enabled = false;
+        var scanner = new QuickScanner(_probe);
+        _map = await Task.Run(() => scanner.Scan());
+        FillSystemTree();
+        FillAppTreeQuick();
+        _deepScanBtn.Enabled = true;
+        var third = _map.Entries.Count(e => e.Kind == HotkeyKind.ThirdParty);
+        _status.Text = $"扫描 {_map.GridSize} 组合，命中 {_map.Entries.Count}（第三方待归因 {third}）";
+    }
+
+    private void FillSystemTree()
+    {
+        _sysTree.Nodes.Clear();
+        var groups = _map!.Entries
+            .Where(e => e.Kind == HotkeyKind.System)
+            .GroupBy(e => e.Group)
+            .OrderBy(g => g.Key);
+        foreach (var g in groups)
+        {
+            var node = _sysTree.Nodes.Add($"{g.Key} ({g.Count()})");
+            foreach (var e in g.OrderBy(x => x.Combo))
+            {
+                var text = $"{e.Combo,-16} {e.Description}";
+                if (!string.IsNullOrEmpty(e.Hint)) text += $"  → {e.Hint}";
+                node.Nodes.Add(text);
+            }
+        }
+        _sysTree.ExpandAll();
+    }
+
+    private void FillAppTreeQuick()
+    {
+        _appTree.Nodes.Clear();
+        var third = _map!.Entries.Where(e => e.Kind == HotkeyKind.ThirdParty).ToList();
+        if (third.Count == 0)
+        {
+            _appTree.Nodes.Add("未检测到第三方占用");
+            return;
+        }
+        _appTree.Nodes.Add($"检测到 {third.Count} 个热键被第三方占用");
+        _appTree.Nodes.Add("点击顶部「深度扫描」确认归属（会临时关闭程序，自动恢复）");
+        _appTree.Nodes.Add("");
+        foreach (var e in third)
+            _appTree.Nodes.Add(e.Combo);
+    }
+
+    private async void OnDeepScan(object? sender, EventArgs e)
+    {
+        if (_map == null) return;
+        var takenKeys = _map.Entries
+            .Where(e => e.Kind == HotkeyKind.ThirdParty)
+            .Select(e => (e.Mods, e.Vk))
+            .ToList();
+        if (takenKeys.Count == 0) return;
+
+        var candidates = _procScanner.Scan()
+            .Where(p => Guard.Evaluate(p) != RiskLevel.Forbidden)
+            .Where(p => p.Pid != Environment.ProcessId)
+            .OrderByDescending(p => p.HasVisibleWindow ? 30 : 0)
+            .ToList();
+        _lastCandidates = candidates;
+
+        using var dlg = new DeepScanDialog(candidates);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        var approved = dlg.ApprovedCandidates;
+        if (approved.Count == 0) return;
+
+        _deepScanBtn.Enabled = false;
+        _status.Text = "深扫中…";
+
+        var deep = new DeepScanner(_probe, _ctrl, _store);
+        var progress = new Progress<DeepScanProgress>(p =>
+            _status.Text = $"深扫 {p.Processed}/{p.Total}  当前 {p.CurrentExe}  剩余 {p.RemainingKeys} 键");
+
+        try
+        {
+            var result = await Task.Run(() => deep.Scan(approved, takenKeys, progress));
+            FillAppTreeDeep(result);
+            _status.Text = result.Completed
+                ? $"深扫完成，归因 {result.AttributionByPid.Count} 进程"
+                : $"深扫完成（部分），归因 {result.AttributionByPid.Count}，未归因 {result.Unattributed.Count}";
+        }
+        catch (OperationCanceledException)
+        {
+            _status.Text = "深扫已中止";
+        }
+        finally
+        {
+            _deepScanBtn.Enabled = true;
+        }
+    }
+
+    private void FillAppTreeDeep(DeepScanResult result)
+    {
+        _appTree.Nodes.Clear();
+        foreach (var kv in result.AttributionByPid)
+        {
+            var proc = _lastCandidates.FirstOrDefault(p => p.Pid == kv.Key);
+            var name = proc?.ExeName ?? $"PID {kv.Key}";
+            var node = _appTree.Nodes.Add($"{name}  [运行中]");
+            node.Tag = kv.Key;
+            node.ToolTipText = proc?.FullPath ?? "";
+            foreach (var key in kv.Value)
+                node.Nodes.Add(KeyCombo.Format(key.Mods, key.Vk));
+        }
+        if (result.Unattributed.Count > 0)
+        {
+            var unk = _appTree.Nodes.Add($"无法归因 ({result.Unattributed.Count})");
+            foreach (var key in result.Unattributed)
+                unk.Nodes.Add(KeyCombo.Format(key.Mods, key.Vk));
+        }
+        _appTree.ExpandAll();
+    }
+
+    private void OnAppNodeDoubleClick(object? sender, TreeNodeMouseClickEventArgs e)
+    {
+        if (e.Node.Tag is not int pid) return;
+        var proc = _lastCandidates.FirstOrDefault(p => p.Pid == pid);
+        if (proc == null) return;
+        if (Guard.Evaluate(proc) == RiskLevel.Forbidden)
+        {
+            MessageBox.Show(this, "该进程受保护，不可操作。", "拒绝",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        var confirm = MessageBox.Show(this,
+            $"结束 {proc.ExeName}？\n将记录启动信息，可一键恢复。",
+            "确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (confirm != DialogResult.Yes) return;
+
+        var snapId = Guid.NewGuid().ToString("N");
+        _store.Save(new DisabledSnapshot(
+            snapId, DateTime.Now, false, pid, proc.ExeName, proc.FullPath,
+            null, null, "user_disable"));
+        _ctrl.GracefulClose(pid, TimeSpan.FromSeconds(3));
+        e.Node.Text = $"{proc.ExeName}  [已结束]";
+    }
+}
