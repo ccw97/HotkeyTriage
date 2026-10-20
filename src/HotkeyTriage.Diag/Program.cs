@@ -19,6 +19,11 @@ if (args.Length >= 2 && args[0] == "--menu-lab")
     return HotkeyTriage.Diag.MenuLab.Run(args[1]);
 }
 
+if (args.Length >= 2 && args[0] == "--appinfo")
+{
+    return HotkeyTriage.Diag.AppInfoLab.Run(args[1]);
+}
+
 if (args.Length >= 1 && args[0] == "--popup-child")
 {
     return PopupChild.Run();

@@ -30,6 +30,39 @@ public class ProcessScannerTests
     }
 
     [Fact]
+    public void FullPath_is_complete_and_exists()
+    {
+        // 回归用例：曾因 QueryFullProcessImageNameW 少了 CharSet.Unicode，
+        // UTF-16 被按 ANSI 解码，路径被截断成第一个字符（"F:\..." -> "F"）。
+        // 只断言"非空"抓不到，必须断言路径真实存在。
+        var scanner = new ProcessScanner();
+        var self = scanner.Scan().First(p => p.Pid == Environment.ProcessId);
+
+        Assert.True(self.FullPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase),
+            $"路径不完整: [{self.FullPath}]");
+        Assert.True(File.Exists(self.FullPath), $"路径指向的文件不存在: [{self.FullPath}]");
+    }
+
+    [Fact]
+    public void FullPath_of_other_processes_is_not_truncated()
+    {
+        // 抽一个系统进程验证跨进程读取：路径要么为空（受保护），要么是完整路径
+        var scanner = new ProcessScanner();
+        var sample = scanner.Scan()
+            .Where(p => p.Pid > 4 && !string.IsNullOrEmpty(p.FullPath))
+            .Take(20)
+            .ToList();
+
+        Assert.NotEmpty(sample);
+        foreach (var p in sample)
+        {
+            Assert.True(p.FullPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                        || p.FullPath.StartsWith(@"\Device\", StringComparison.OrdinalIgnoreCase),
+                $"{p.ExeName} 的路径可疑: [{p.FullPath}]");
+        }
+    }
+
+    [Fact]
     public void Scan_does_not_throw_for_system_process()
     {
         var scanner = new ProcessScanner();

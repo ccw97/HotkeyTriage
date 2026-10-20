@@ -575,7 +575,13 @@ public sealed class MainForm : Form
 
             var node = _appTree.Nodes.Add($"{name}\t{info.Vendor}\tPID {kv.Key}");
             node.Tag = kv.Key;
-            node.ToolTipText = proc?.FullPath ?? "";
+            node.ToolTipText = string.Join(Environment.NewLine, new[]
+            {
+                proc?.FullPath,
+                string.IsNullOrWhiteSpace(info.Company) ? null : $"公司：{info.Company}",
+                string.IsNullOrWhiteSpace(info.Product) ? null : $"产品：{info.Product}",
+                string.IsNullOrWhiteSpace(info.Version) ? null : $"版本：{info.Version}",
+            }.Where(s => !string.IsNullOrWhiteSpace(s))!);
             node.Expand();
 
             foreach (var key in kv.Value)
@@ -584,13 +590,15 @@ public sealed class MainForm : Form
                 if (funcMap.TryGetValue(key, out var func))
                 {
                     // 有功能名：功能名（亮）+ 程序名（弱）
-                    node.Nodes.Add($"{keyText}\t{func}\t{name}");
+                    var n = node.Nodes.Add($"{keyText}\t{func}\t{name}");
+                    n.ToolTipText = $"功能名读自 {name} 自带的菜单资源";
                 }
                 else
                 {
                     // 没有功能名：回落到程序身份，并把"这只是程序名"这件事用弱化色表达出来
                     var tail = string.IsNullOrWhiteSpace(info.Company) ? "功能未知" : info.Company;
-                    node.Nodes.Add($"{keyText}\t{name}\t{tail}");
+                    var n = node.Nodes.Add($"{keyText}\t{name}\t{tail}");
+                    n.ToolTipText = $"该程序没有可读的菜单资源（多为自绘界面），无法得知具体功能\n{proc?.FullPath}";
                 }
             }
         }

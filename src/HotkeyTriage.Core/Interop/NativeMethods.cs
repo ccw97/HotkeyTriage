@@ -42,7 +42,10 @@ public static class NativeMethods
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
+    // CharSet.Unicode 不能省：DllImport 默认是 Ansi，而 QueryFullProcessImageNameW
+    // 写出的是 UTF-16。缺了这个属性，封送层会按 ANSI 解码，遇到第二个字节 0x00 就截断，
+    // 结果 "F:\SoftWare\WeChat\Weixin\Weixin.exe" 变成 "F" —— 实测踩过。
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern bool QueryFullProcessImageNameW(IntPtr hProcess, uint dwFlags, StringBuilder lpExeName, ref uint lpdwSize);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

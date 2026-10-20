@@ -10,7 +10,8 @@ public sealed record AppInfo(
     string ExeName,
     string Company,
     string Product,
-    string WindowTitle)
+    string WindowTitle,
+    string Version = "")
 {
     /// <summary>厂商标识：优先公司名，缺失时退到产品名。</summary>
     public string Vendor =>
@@ -18,7 +19,7 @@ public sealed record AppInfo(
         : !string.IsNullOrWhiteSpace(Product) ? Product
         : "";
 
-    /// <summary>紧凑身份串，如 <c>Weixin.exe · 腾讯科技（深圳）有限公司</c>。</summary>
+    /// <summary>紧凑身份串，如 <c>Weixin.exe · Tencent</c>。</summary>
     public string Identity
     {
         get
@@ -39,7 +40,7 @@ public static class AppInfoProvider
     /// </summary>
     public static AppInfo For(ProcInfo p)
     {
-        string company = "", product = "";
+        string company = "", product = "", version = "";
         try
         {
             if (!string.IsNullOrWhiteSpace(p.FullPath) && File.Exists(p.FullPath))
@@ -47,11 +48,12 @@ public static class AppInfoProvider
                 var vi = FileVersionInfo.GetVersionInfo(p.FullPath);
                 company = (vi.CompanyName ?? "").Trim();
                 product = (vi.ProductName ?? vi.FileDescription ?? "").Trim();
+                version = (vi.FileVersion ?? "").Trim();
             }
         }
         catch { /* 忽略：文件被占用 / 无权限 / 无版本信息 */ }
 
-        return new AppInfo(p.ExeName, company, product, GetWindowTitle(p.Pid));
+        return new AppInfo(p.ExeName, company, product, GetWindowTitle(p.Pid), version);
     }
 
     /// <summary>取该进程第一个可见且有标题的顶层窗口标题。</summary>
