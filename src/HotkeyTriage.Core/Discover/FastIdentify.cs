@@ -18,6 +18,17 @@ public sealed class FastIdentify : IDisposable
     private IntPtr _dll = IntPtr.Zero;
     private bool _hooked = false;
 
+    private static void Log(string msg)
+    {
+        try
+        {
+            File.AppendAllText(
+                Path.Combine(Path.GetTempPath(), "hotkey_triage.log"),
+                $"{DateTime.Now:HH:mm:ss.fff} [Fast] {msg}\r\n");
+        }
+        catch { }
+    }
+
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     public struct HotkeyRecord
     {
@@ -85,8 +96,12 @@ public sealed class FastIdentify : IDisposable
         {
             // 3. 安装钩子
             if (!SetHook())
+            {
+                Log("SetHook 失败");
                 return new FastIdentifyResult { Refused = true, Reason = "SetWindowsHookEx 失败，可能权限不足" };
+            }
             _hooked = true;
+            Log("SetHook 成功，钩子已安装");
 
             var attribution = new Dictionary<int, List<(uint Mods, uint Vk)>>();
             var remaining = keys.ToList();
@@ -99,6 +114,7 @@ public sealed class FastIdentify : IDisposable
                 Thread.Sleep(200); // 等 WM_HOTKEY 投递与钩子回传
 
                 var recs = ReadRecords();
+                Log($"模拟 {KeyCombo.Format(key.Mods, key.Vk)} -> 捕获 {recs.Count} 条");
                 foreach (var r in recs)
                 {
                     if (r.Mods == key.Mods && r.Vk == key.Vk && r.Pid != 0)

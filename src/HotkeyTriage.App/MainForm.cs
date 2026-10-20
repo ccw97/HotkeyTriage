@@ -16,8 +16,8 @@ public sealed class MainForm : Form
     private readonly TreeView _sysTree = new() { Dock = DockStyle.Fill };
     private readonly TreeView _appTree = new() { Dock = DockStyle.Fill };
     private readonly Panel _topBar = new() { Dock = DockStyle.Top, Height = 40 };
-    private readonly Button _deepScanBtn = new() { Text = "深度扫描", Width = 100 };
-    private readonly Button _fastBtn = new() { Text = "快速识别", Width = 100 };
+    private readonly RoundButton _deepScanBtn = new() { Text = "深度扫描", Width = 100 };
+    private readonly RoundButton _fastBtn = new() { Text = "快速识别", Width = 100 };
     private readonly Label _status = new() { Text = "就绪", Dock = DockStyle.Fill };
 
     private readonly HotkeyProbe _probe = new();
@@ -45,14 +45,21 @@ public sealed class MainForm : Form
         Width = 900; Height = 600;
         StartPosition = FormStartPosition.CenterScreen;
         Font = new Font("Segoe UI", 9F);
-        BackColor = Color.FromArgb(248, 248, 248);
-        _topBar.BackColor = Color.FromArgb(240, 240, 240);
-        _sysTree.Font = Font;
-        _appTree.Font = Font;
-        _status.Font = Font;
-        _deepScanBtn.FlatStyle = FlatStyle.Flat;
+        BackColor = Color.FromArgb(243, 243, 243);
+        _topBar.BackColor = Color.FromArgb(32, 32, 32);
+        _topBar.Height = 48;
+        _topBar.Padding = new Padding(8, 8, 8, 8);
+        _status.ForeColor = Color.FromArgb(220, 220, 220);
+        _status.Font = new Font("Segoe UI", 9F);
+        _sysTree.Font = new Font("Segoe UI", 9F);
+        _appTree.Font = new Font("Segoe UI", 9F);
+        _sysTree.BackColor = Color.White;
+        _appTree.BackColor = Color.White;
+        _sysTree.BorderStyle = BorderStyle.None;
+        _appTree.BorderStyle = BorderStyle.None;
+        _sysTree.ItemHeight = 24;
+        _appTree.ItemHeight = 24;
         _deepScanBtn.BackColor = Color.FromArgb(0, 120, 215);
-        _deepScanBtn.ForeColor = Color.White;
 
         _deepScanBtn.Click += OnDeepScan;
         _fastBtn.Click += OnFastIdentify;
