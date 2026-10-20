@@ -11,7 +11,12 @@ namespace HotkeyTriage.Core.Probe;
 ///
 /// 副作用声明：探测会短暂占用该热键（微秒级），随即注销。不修改任何系统状态。
 /// </summary>
-public sealed class HotkeyProbe
+public interface IHotkeyProbe
+{
+    ProbeResult Probe(uint modifiers, uint vk);
+}
+
+public sealed class HotkeyProbe : IHotkeyProbe
 {
     private const int DefaultHotkeyId = 0xBEEF;
 
@@ -29,6 +34,9 @@ public sealed class HotkeyProbe
     /// 探测某组合键是否被占用。
     /// </summary>
     /// <returns>Free 表示空闲；Taken 表示被他人占用（errorCode=1409）；Error 表示探测失败</returns>
+    /// <summary>无 out 参数的便捷重载，供 IHotkeyProbe 接口使用</summary>
+    public ProbeResult Probe(uint modifiers, uint vk) => Probe(modifiers, vk, out _);
+
     public ProbeResult Probe(uint modifiers, uint vk, out int errorCode)
     {
         errorCode = 0;

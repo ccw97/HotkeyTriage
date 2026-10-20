@@ -4,13 +4,20 @@ using HotkeyTriage.Core.Interop;
 
 namespace HotkeyTriage.Core.Act;
 
+public interface IProcessController
+{
+    bool GracefulClose(int pid, TimeSpan timeout);
+    bool ForceKill(int pid);
+    Process? Restore(string path, string? args = null, string? workingDir = null);
+}
+
 /// <summary>
 /// 进程关闭与恢复。
 ///
 /// 优先级（编排层强制）：GracefulClose > ForceKill。
 /// 任何关闭动作执行前，编排层必须先落盘快照（DisabledListStore）。
 /// </summary>
-public sealed class ProcessController
+public sealed class ProcessController : IProcessController
 {
     private static readonly IntPtr InvalidHandle = new(-1);
 
