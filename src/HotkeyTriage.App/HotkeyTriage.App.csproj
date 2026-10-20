@@ -9,6 +9,9 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- 把 .NET 原生依赖（vcruntime / D3D 等）一起打进 exe，
+         否则 publish 后会在旁边留下 5 个 cor3.dll，与"单文件"的定位不符。 -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +22,9 @@
     <Content Include="..\HotkeyTriage.Hook\hook.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
+      <!-- hook.dll 必须留在 exe 旁边：系统要单独把它加载进每个目标进程，
+           打进单文件后 LoadLibrary("hook.dll") 会找不到文件，快速识别直接失效。 -->
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>
 
