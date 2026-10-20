@@ -15,5 +15,9 @@ __pycache__/
 Thumbs.db
 .DS_Store
 
-# 工具本地状态
-.workbuddy/memory/
+# 工具本地状态（AI 助手的工作记忆/配置，属于本地私有数据，绝不上传）
+.workbuddy/
+
+# 本地运行产物
+*.log
+*.tmp

@@ -161,7 +161,7 @@ HotkeyTriage 的取舍是：**不装驱动、不读内核表，用"试注册 + �
 │   ├── 03-实现文档.md
 │   ├── 实验记录.md                 # 实测数据
 │   ├── screenshots/
-│   └── archive/                    # 早期设计稿（已被实现超越）
+│   └── archive/                    # 早期设计稿与 Python 原型（已被实现取代）
 ├── probe/                          # 验证 API 行为的 Python 脚本
 └── dist/                           # 发布产物（不进版本库）
 ```
