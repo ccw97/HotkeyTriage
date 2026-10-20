@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>HotkeyTriage.Diag</AssemblyName>
+    <RootNamespace>HotkeyTriage.Diag</RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HotkeyTriage.Core\HotkeyTriage.Core.csproj" />
+    <ProjectReference Include="..\HotkeyTriage.App\HotkeyTriage.App.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\HotkeyTriage.Hook\hook.dll" Link="hook.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

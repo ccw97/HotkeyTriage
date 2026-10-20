@@ -44,7 +44,26 @@ public sealed class FastIdentify : IDisposable
     private static extern bool RemoveHook();
 
     [DllImport(DllName, CallingConvention = CallingConvention.StdCall)]
-    private static extern int GetRecords(IntPtr outBuf, int maxCount);
+    private static extern int ReadRecords(int fromSeq, IntPtr outBuf, int maxCount);
+
+    [DllImport(DllName, CallingConvention = CallingConvention.StdCall)]
+    private static extern int GetCount();
+
+    // ── SendInput 结构 ────────────────────────────────────────────
+    // 关键：64 位下 sizeof(INPUT) 必须是 40 字节（4 字节 type + 4 字节对齐 + 32 字节 union）。
+    // 若只声明 type + KEYBDINPUT，sizeof 会是 32，SendInput 直接返回 0 且
+    // GetLastError = 87 (ERROR_INVALID_PARAMETER) —— 一个键都发不出去。
+    // 这是 P2 归因长期为空的真正根因，必须保留 MOUSEINPUT 撑满 union。
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MOUSEINPUT
+    {
+        public int dx;
+        public int dy;
+        public uint mouseData;
+        public uint dwFlags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct KEYBDINPUT
@@ -53,14 +72,30 @@ public sealed class FastIdentify : IDisposable
         public ushort wScan;
         public uint dwFlags;
         public uint time;
-        public IntPtr extraInfo;
+        public IntPtr dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct HARDWAREINPUT
+    {
+        public uint uMsg;
+        public ushort wParamL;
+        public ushort wParamH;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    private struct INPUTUNION
+    {
+        [FieldOffset(0)] public MOUSEINPUT mi;
+        [FieldOffset(0)] public KEYBDINPUT ki;
+        [FieldOffset(0)] public HARDWAREINPUT hi;
     }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct INPUT
     {
-        public uint type; // 1 = INPUT_KEYBOARD
-        public KEYBDINPUT ki;
+        public uint type;      // 1 = INPUT_KEYBOARD
+        public INPUTUNION u;
     }
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -101,33 +136,44 @@ public sealed class FastIdentify : IDisposable
                 return new FastIdentifyResult { Refused = true, Reason = "SetWindowsHookEx 失败，可能权限不足" };
             }
             _hooked = true;
-            Log("SetHook 成功，钩子已安装");
+            Log($"SetHook 成功，钩子已安装；sizeof(INPUT)={Marshal.SizeOf<INPUT>()}");
+
+            // 预热：全局钩子是惰性注入的——目标进程要等下一次 GetMessage/PeekMessage
+            // 才会加载 DLL。不预热就立刻发键，头几个键会打空。
+            Thread.Sleep(400);
 
             var attribution = new Dictionary<int, List<(uint Mods, uint Vk)>>();
             var remaining = keys.ToList();
+            int seq = GetCount();
 
             // 4. 逐个模拟按键
             foreach (var key in keys)
             {
                 if (remaining.Count == 0) break;
-                SendCombo(key.Mods, key.Vk);
-                Thread.Sleep(200); // 等 WM_HOTKEY 投递与钩子回传
+                uint sent = SendCombo(key.Mods, key.Vk);
+                if (sent == 0)
+                {
+                    int err = Marshal.GetLastWin32Error();
+                    Log($"SendInput 失败 {KeyCombo.Format(key.Mods, key.Vk)} err={err}");
+                }
+                Thread.Sleep(180); // 等 WM_HOTKEY 投递与钩子回传
 
-                var recs = ReadRecords();
-                Log($"模拟 {KeyCombo.Format(key.Mods, key.Vk)} -> 捕获 {recs.Count} 条");
+                var recs = ReadNew(ref seq);
+                bool hit = false;
                 foreach (var r in recs)
                 {
                     if (r.Mods == key.Mods && r.Vk == key.Vk && r.Pid != 0)
                     {
                         var pid = (int)r.Pid;
-                        if (!attribution.ContainsKey(pid))
-                            attribution[pid] = new List<(uint, uint)>();
-                        if (!attribution[pid].Contains(key))
-                            attribution[pid].Add(key);
+                        if (!attribution.TryGetValue(pid, out var list))
+                            attribution[pid] = list = new List<(uint, uint)>();
+                        if (!list.Contains(key)) list.Add(key);
                         remaining.Remove(key);
+                        hit = true;
                         break;
                     }
                 }
+                Log($"模拟 {KeyCombo.Format(key.Mods, key.Vk)} -> 发出 {sent} 事件，捕获 {recs.Count} 条，{(hit ? "命中" : "未命中")}");
             }
 
             return new FastIdentifyResult
@@ -144,25 +190,28 @@ public sealed class FastIdentify : IDisposable
         }
     }
 
-    private List<HotkeyRecord> ReadRecords()
+    /// <summary>
+    /// 取出自 seq 之后的新增记录，并推进 seq。
+    /// seq 单调递增（DLL 侧不清零），因此不存在"读写索引错位"的可能。
+    /// </summary>
+    private List<HotkeyRecord> ReadNew(ref int seq)
     {
         const int MAX = 256;
         int recSize = Marshal.SizeOf<HotkeyRecord>();
         var buf = Marshal.AllocHGlobal(recSize * MAX);
         try
         {
-            int n = GetRecords(buf, MAX);
-            var list = new List<HotkeyRecord>(n);
-            for (int i = 0; i < n; i++)
-            {
+            int take = ReadRecords(seq, buf, MAX);
+            var list = new List<HotkeyRecord>(Math.Max(take, 0));
+            for (int i = 0; i < take; i++)
                 list.Add(Marshal.PtrToStructure<HotkeyRecord>(buf + i * recSize));
-            }
+            seq = GetCount();
             return list;
         }
         finally { Marshal.FreeHGlobal(buf); }
     }
 
-    private void SendCombo(uint mods, uint vk)
+    private static uint SendCombo(uint mods, uint vk)
     {
         var inputs = new List<INPUT>(10);
         if ((mods & NativeMethods.MOD_CONTROL) != 0) inputs.Add(Down(VK_CONTROL));
@@ -178,14 +227,14 @@ public sealed class FastIdentify : IDisposable
         if ((mods & NativeMethods.MOD_ALT) != 0) inputs.Add(Up(VK_MENU));
         if ((mods & NativeMethods.MOD_CONTROL) != 0) inputs.Add(Up(VK_CONTROL));
 
-        SendInput((uint)inputs.Count, inputs.ToArray(), Marshal.SizeOf<INPUT>());
+        return SendInput((uint)inputs.Count, inputs.ToArray(), Marshal.SizeOf<INPUT>());
     }
 
     private static INPUT Down(ushort vk) => new()
-    { type = INPUT_KEYBOARD, ki = new() { wVk = vk } };
+    { type = INPUT_KEYBOARD, u = new INPUTUNION { ki = new KEYBDINPUT { wVk = vk } } };
 
     private static INPUT Up(ushort vk) => new()
-    { type = INPUT_KEYBOARD, ki = new() { wVk = vk, dwFlags = KEYEVENTF_KEYUP } };
+    { type = INPUT_KEYBOARD, u = new INPUTUNION { ki = new KEYBDINPUT { wVk = vk, dwFlags = KEYEVENTF_KEYUP } } };
 
     private void ReleaseAllModifiers()
     {
