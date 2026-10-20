@@ -17,6 +17,7 @@ public sealed class MainForm : Form
     private readonly TreeView _appTree = new() { Dock = DockStyle.Fill };
     private readonly Panel _topBar = new() { Dock = DockStyle.Top, Height = 40 };
     private readonly Button _deepScanBtn = new() { Text = "深度扫描", Width = 100 };
+    private readonly Button _fastBtn = new() { Text = "快速识别", Width = 100 };
     private readonly Label _status = new() { Text = "就绪", Dock = DockStyle.Fill };
 
     private readonly HotkeyProbe _probe = new();
@@ -26,6 +27,17 @@ public sealed class MainForm : Form
 
     private HotkeyMap? _map;
     private List<ProcInfo> _lastCandidates = new();
+
+    private static void Log(string msg)
+    {
+        try
+        {
+            File.AppendAllText(
+                Path.Combine(Path.GetTempPath(), "hotkey_triage.log"),
+                $"{DateTime.Now:HH:mm:ss.fff} {msg}\r\n");
+        }
+        catch { }
+    }
 
     public MainForm()
     {
@@ -43,9 +55,15 @@ public sealed class MainForm : Form
         _deepScanBtn.ForeColor = Color.White;
 
         _deepScanBtn.Click += OnDeepScan;
+        _fastBtn.Click += OnFastIdentify;
+        _fastBtn.FlatStyle = FlatStyle.Flat;
+        _fastBtn.BackColor = Color.FromArgb(16, 124, 16);
+        _fastBtn.ForeColor = Color.White;
         _topBar.Controls.Add(_status);
         _topBar.Controls.Add(_deepScanBtn);
+        _topBar.Controls.Add(_fastBtn);
         _deepScanBtn.Dock = DockStyle.Left;
+        _fastBtn.Dock = DockStyle.Left;
 
         var sysTab = new TabPage("Windows 自带") { Dock = DockStyle.Fill };
         sysTab.Controls.Add(_sysTree);
@@ -59,20 +77,36 @@ public sealed class MainForm : Form
 
         _appTree.NodeMouseDoubleClick += OnAppNodeDoubleClick;
 
-        Load += async (_, _) => await QuickScanAsync();
+        Load += async (_, _) => { Log("Form Load 触发"); await QuickScanAsync(); };
     }
 
     private async Task QuickScanAsync()
     {
+        Log("QuickScan 开始");
         _status.Text = "快扫中…";
         _deepScanBtn.Enabled = false;
-        var scanner = new QuickScanner(_probe);
-        _map = await Task.Run(() => scanner.Scan());
-        FillSystemTree();
-        FillAppTreeQuick();
-        _deepScanBtn.Enabled = true;
-        var third = _map.Entries.Count(e => e.Kind == HotkeyKind.ThirdParty);
-        _status.Text = $"扫描 {_map.GridSize} 组合，命中 {_map.Entries.Count}（第三方待归因 {third}）";
+        try
+        {
+            var scanner = new QuickScanner(_probe);
+            _map = await Task.Run(() => scanner.Scan());
+            Log($"QuickScan 完成: {_map.GridSize} 网格, {_map.Entries.Count} 命中");
+            FillSystemTree();
+            FillAppTreeQuick();
+            var third = _map.Entries.Count(e => e.Kind == HotkeyKind.ThirdParty);
+            _status.Text = $"扫描 {_map.GridSize} 组合，命中 {_map.Entries.Count}（第三方待归因 {third}）";
+        }
+        catch (Exception ex)
+        {
+            Log($"QuickScan 失败: {ex}");
+            _status.Text = "快扫失败";
+            MessageBox.Show(this,
+                $"快扫失败：{ex.Message}\n\n详见日志：\n{Path.GetTempPath()}hotkey_triage.log",
+                "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            _deepScanBtn.Enabled = true;
+        }
     }
 
     private void FillSystemTree()
@@ -175,6 +209,83 @@ public sealed class MainForm : Form
             var unk = _appTree.Nodes.Add($"无法归因 ({result.Unattributed.Count})");
             unk.Nodes.Add("占用者可能在未勾选的进程中（有窗口的默认未勾选）");
             unk.Nodes.Add("建议：重新深扫，勾选更多进程");
+            foreach (var key in result.Unattributed)
+                unk.Nodes.Add(KeyCombo.Format(key.Mods, key.Vk));
+        }
+        _appTree.ExpandAll();
+    }
+
+    private async void OnFastIdentify(object? sender, EventArgs e)
+    {
+        if (_map == null) return;
+        var takenKeys = _map.Entries
+            .Where(e => e.Kind == HotkeyKind.ThirdParty)
+            .Select(e => (e.Mods, e.Vk))
+            .ToList();
+        if (takenKeys.Count == 0) return;
+
+        var candidates = _procScanner.Scan().ToList();
+        _lastCandidates = candidates;
+
+        var confirm = MessageBox.Show(this,
+            "快速识别会模拟按下每个被占用的热键，触发占用者的功能。\n" +
+            "（微信会弹截图框、录屏开始录、音乐切歌）\n\n" +
+            "不会关闭任何程序。检测到反作弊进程会自动拒绝。\n\n继续？",
+            "快速识别风险确认", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        if (confirm != DialogResult.Yes) return;
+
+        _fastBtn.Enabled = false;
+        _deepScanBtn.Enabled = false;
+        _status.Text = "快速识别中…";
+
+        try
+        {
+            using var fast = new FastIdentify();
+            var result = await Task.Run(() => fast.Identify(takenKeys, candidates));
+            if (result.Refused)
+            {
+                MessageBox.Show(this, result.Reason, "快速识别被拒绝",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _status.Text = "快速识别被拒绝";
+            }
+            else
+            {
+                FillAppTreeFast(result);
+                _status.Text = result.Completed
+                    ? $"快速识别完成，归因 {result.AttributionByPid.Count} 进程"
+                    : $"快速识别完成（部分），归因 {result.AttributionByPid.Count}，未归因 {result.Unattributed.Count}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"快速识别失败: {ex}");
+            MessageBox.Show(this, $"快速识别失败：{ex.Message}", "错误",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            _fastBtn.Enabled = true;
+            _deepScanBtn.Enabled = true;
+        }
+    }
+
+    private void FillAppTreeFast(FastIdentifyResult result)
+    {
+        _appTree.Nodes.Clear();
+        foreach (var kv in result.AttributionByPid)
+        {
+            var proc = _lastCandidates.FirstOrDefault(p => p.Pid == kv.Key);
+            var name = proc?.ExeName ?? $"PID {kv.Key}";
+            var node = _appTree.Nodes.Add($"{name}  [PID {kv.Key}]");
+            node.Tag = kv.Key;
+            node.ToolTipText = proc?.FullPath ?? "";
+            foreach (var key in kv.Value)
+                node.Nodes.Add($"{KeyCombo.Format(key.Mods, key.Vk)}  →  {name}");
+        }
+        if (result.Unattributed.Count > 0)
+        {
+            var unk = _appTree.Nodes.Add($"无法归因 ({result.Unattributed.Count})");
+            unk.Nodes.Add("可能是钩子型占用（AHK/录屏），或注入未覆盖的进程");
             foreach (var key in result.Unattributed)
                 unk.Nodes.Add(KeyCombo.Format(key.Mods, key.Vk));
         }

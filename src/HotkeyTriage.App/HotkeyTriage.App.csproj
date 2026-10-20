@@ -14,4 +14,11 @@
     <ProjectReference Include="..\HotkeyTriage.Core\HotkeyTriage.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\HotkeyTriage.Hook\hook.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+    </Content>
+  </ItemGroup>
+
 </Project>
