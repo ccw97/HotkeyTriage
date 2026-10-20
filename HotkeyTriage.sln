@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{DD0D4F56-456E-442B-8F7B-07845B14DBE4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotkeyTriage.Core", "src\HotkeyTriage.Core\HotkeyTriage.Core.csproj", "{412D1F2F-68AC-40B8-B1FA-E5CE6411B2D0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotkeyTriage.Tests", "src\HotkeyTriage.Tests\HotkeyTriage.Tests.csproj", "{EFC908F1-C5D1-4151-A9AE-878088E825CD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HotkeyTriage.App", "src\HotkeyTriage.App\HotkeyTriage.App.csproj", "{11328921-18CA-438A-9652-3F06B666F177}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{412D1F2F-68AC-40B8-B1FA-E5CE6411B2D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{412D1F2F-68AC-40B8-B1FA-E5CE6411B2D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{412D1F2F-68AC-40B8-B1FA-E5CE6411B2D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{412D1F2F-68AC-40B8-B1FA-E5CE6411B2D0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EFC908F1-C5D1-4151-A9AE-878088E825CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EFC908F1-C5D1-4151-A9AE-878088E825CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EFC908F1-C5D1-4151-A9AE-878088E825CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EFC908F1-C5D1-4151-A9AE-878088E825CD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{11328921-18CA-438A-9652-3F06B666F177}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{11328921-18CA-438A-9652-3F06B666F177}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{11328921-18CA-438A-9652-3F06B666F177}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{11328921-18CA-438A-9652-3F06B666F177}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{412D1F2F-68AC-40B8-B1FA-E5CE6411B2D0} = {DD0D4F56-456E-442B-8F7B-07845B14DBE4}
+		{EFC908F1-C5D1-4151-A9AE-878088E825CD} = {DD0D4F56-456E-442B-8F7B-07845B14DBE4}
+		{11328921-18CA-438A-9652-3F06B666F177} = {DD0D4F56-456E-442B-8F7B-07845B14DBE4}
+	EndGlobalSection
+EndGlobal
