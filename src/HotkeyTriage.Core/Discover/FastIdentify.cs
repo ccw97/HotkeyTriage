@@ -113,6 +113,7 @@ public sealed class FastIdentify : IDisposable
     private const int INPUT_KEYBOARD = 1;
     private const uint KEYEVENTF_KEYUP = 0x0002;
     private const int VK_SHIFT = 0x10, VK_CONTROL = 0x11, VK_MENU = 0x12, VK_LWIN = 0x5B;
+    private const int VK_ESCAPE = 0x1B;
 
     public FastIdentifyResult Identify(
         IReadOnlyList<(uint Mods, uint Vk)> keys,
@@ -126,6 +127,9 @@ public sealed class FastIdentify : IDisposable
         _dll = LoadLibrary(DllName);
         if (_dll == IntPtr.Zero)
             return new FastIdentifyResult { Refused = true, Reason = "hook.dll 加载失败（应与 exe 同目录）" };
+
+        // 收尾基线：整轮结束后把仍然残留的弹窗也一并收掉
+        var baseline = SnapshotTopWindows();
 
         try
         {
@@ -147,9 +151,14 @@ public sealed class FastIdentify : IDisposable
             int seq = GetCount();
 
             // 4. 逐个模拟按键
+            int dismissed = 0;
             foreach (var key in keys)
             {
                 if (remaining.Count == 0) break;
+
+                // 记录按键前的顶层窗口集合，用于判断"这个键是否真的催生了新窗口"
+                var before = SnapshotTopWindows();
+
                 uint sent = SendCombo(key.Mods, key.Vk);
                 if (sent == 0)
                 {
@@ -157,6 +166,16 @@ public sealed class FastIdentify : IDisposable
                     Log($"SendInput 失败 {KeyCombo.Format(key.Mods, key.Vk)} err={err}");
                 }
                 Thread.Sleep(180); // 等 WM_HOTKEY 投递与钩子回传
+
+                // 模拟按键会真的触发对方功能（微信弹截图框、录屏开始录）。
+                // 这里检测新增的最上层窗口，用 ESC 把它收回，免去用户手动取消。
+                var popup = FindNewTopWindow(before);
+                if (popup != IntPtr.Zero)
+                {
+                    bool closed = DismissPopup(popup);
+                    if (closed) dismissed++;
+                    Log($"模拟 {KeyCombo.Format(key.Mods, key.Vk)} -> 触发弹窗，{(closed ? "已发送 ESC 取消" : "ESC 取消未生效")}");
+                }
 
                 var recs = ReadNew(ref seq);
                 bool hit = false;
@@ -175,6 +194,7 @@ public sealed class FastIdentify : IDisposable
                 }
                 Log($"模拟 {KeyCombo.Format(key.Mods, key.Vk)} -> 发出 {sent} 事件，捕获 {recs.Count} 条，{(hit ? "命中" : "未命中")}");
             }
+            Log($"本轮共取消 {dismissed} 个被触发的弹窗");
 
             return new FastIdentifyResult
             {
@@ -187,6 +207,7 @@ public sealed class FastIdentify : IDisposable
         {
             if (_hooked) RemoveHook();
             ReleaseAllModifiers();
+            DismissLeftovers(baseline);
         }
     }
 
@@ -235,6 +256,92 @@ public sealed class FastIdentify : IDisposable
 
     private static INPUT Up(ushort vk) => new()
     { type = INPUT_KEYBOARD, u = new INPUTUNION { ki = new KEYBDINPUT { wVk = vk, dwFlags = KEYEVENTF_KEYUP } } };
+
+    // ── 触发后的自动取消 ──────────────────────────────────────────
+    // 快速识别的副作用是"真的把功能触发了一遍"。既然如此，就在触发后负责收尾：
+    // 检测按键是否催生了新的顶层窗口，若有则把它拉回前台并按 ESC 关闭。
+
+    private static readonly uint OwnPid = (uint)Environment.ProcessId;
+
+    /// <summary>当前所有可见且有标题的顶层窗口（Z 序，最上层在前）。</summary>
+    private static HashSet<IntPtr> SnapshotTopWindows()
+    {
+        var set = new HashSet<IntPtr>();
+        NativeMethods.EnumWindows((h, _) =>
+        {
+            if (NativeMethods.IsWindowVisible(h) && NativeMethods.GetWindowTextLengthW(h) > 0)
+                set.Add(h);
+            return true;
+        }, IntPtr.Zero);
+        return set;
+    }
+
+    /// <summary>找出按键后新冒出来的最上层窗口（排除本进程自己的窗口）。</summary>
+    private static IntPtr FindNewTopWindow(HashSet<IntPtr> before)
+    {
+        IntPtr found = IntPtr.Zero;
+        NativeMethods.EnumWindows((h, _) =>
+        {
+            if (!NativeMethods.IsWindowVisible(h)) return true;
+            if (NativeMethods.GetWindowTextLengthW(h) == 0) return true;
+            if (before.Contains(h)) return true;
+
+            NativeMethods.GetWindowThreadProcessId(h, out uint pid);
+            if (pid == OwnPid) return true;
+
+            found = h;
+            return false; // EnumWindows 自 Z 序顶向下，第一个即是用户看到的那个
+        }, IntPtr.Zero);
+        return found;
+    }
+
+    /// <summary>把弹窗拉回前台并按 ESC 关闭。返回是否成功关闭。</summary>
+    private static bool DismissPopup(IntPtr hwnd)
+    {
+        // 前台锁定会挡住 SetForegroundWindow，先临时附加到前台线程的输入队列
+        uint curThread = NativeMethods.GetCurrentThreadId();
+        uint fgThread = NativeMethods.GetWindowThreadProcessId(
+            NativeMethods.GetForegroundWindow(), out _);
+        bool attached = fgThread != 0 && fgThread != curThread
+                        && NativeMethods.AttachThreadInput(curThread, fgThread, true);
+        try
+        {
+            NativeMethods.SetForegroundWindow(hwnd);
+        }
+        finally
+        {
+            if (attached) NativeMethods.AttachThreadInput(curThread, fgThread, false);
+        }
+
+        Thread.Sleep(60);
+
+        // ESC 走完整输入栈，比 PostMessage 更通用（对方多用自己的消息循环）
+        var esc = new[]
+        {
+            new INPUT { type = INPUT_KEYBOARD, u = new INPUTUNION { ki = new KEYBDINPUT { wVk = VK_ESCAPE } } },
+            new INPUT { type = INPUT_KEYBOARD, u = new INPUTUNION { ki = new KEYBDINPUT { wVk = VK_ESCAPE, dwFlags = KEYEVENTF_KEYUP } } },
+        };
+        SendInput((uint)esc.Length, esc, Marshal.SizeOf<INPUT>());
+
+        Thread.Sleep(120);
+        return !NativeMethods.IsWindowVisible(hwnd);
+    }
+
+    /// <summary>收尾：把本轮触发后仍残留的弹窗逐个关掉（最多 3 层）。</summary>
+    private static void DismissLeftovers(HashSet<IntPtr> baseline)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            var w = FindNewTopWindow(baseline);
+            if (w == IntPtr.Zero) return;
+            if (!DismissPopup(w))
+            {
+                Log("收尾阶段仍有弹窗未能关闭，可能对方不响应 ESC");
+                return;
+            }
+            Log("收尾阶段关闭了残留弹窗");
+        }
+    }
 
     private void ReleaseAllModifiers()
     {

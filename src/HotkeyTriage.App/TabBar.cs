@@ -33,7 +33,7 @@ public sealed class TabBar : Control
                  | ControlStyles.OptimizedDoubleBuffer
                  | ControlStyles.ResizeRedraw, true);
         Height = 46;
-        BackColor = UiTheme.Surface;
+        BackColor = UiTheme.SurfaceAlt;
         Font = _font;
         Cursor = Cursors.Hand;
     }
@@ -122,10 +122,10 @@ public sealed class TabBar : Control
             {
                 var br = new Rectangle(startX + titleW + 8, (Height - 18) / 2, badgeW, 18);
                 using var path = UiTheme.RoundedRect(br, 9);
-                using var b = new SolidBrush(sel ? UiTheme.SelectBg : Color.FromArgb(243, 244, 246));
+                using var b = new SolidBrush(sel ? UiTheme.SelectBg : UiTheme.SurfaceRaised);
                 g.FillPath(b, path);
                 TextRenderer.DrawText(g, it.Count.ToString(), _fontBadge, br,
-                    sel ? UiTheme.Accent : UiTheme.Muted,
+                    sel ? Color.FromArgb(170, 200, 255) : UiTheme.Muted,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
 

@@ -13,6 +13,16 @@ if (args.Length >= 2 && args[0] == "--shot")
     return 0;
 }
 
+if (args.Length >= 1 && args[0] == "--popup-child")
+{
+    return PopupChild.Run();
+}
+
+if (args.Length >= 1 && args[0] == "--dismiss-test")
+{
+    return DismissTest.Run();
+}
+
 // 端到端回归：自己注册一个热键，让 FastIdentify 去归因，看能否认出自己。
 // 认得出 = P2 链路闭环；认不出 = 还有缺陷。
 // 这个实验不依赖微信/AHK 等任何第三方软件，可反复运行。
@@ -119,5 +129,114 @@ internal static class UiShot
         t.IsBackground = true;
         t.Start();
         t.Join();
+    }
+}
+
+/// <summary>
+/// 「触发后自动取消」的真实验证。
+/// 靶子必须跑在**另一个进程**里：FastIdentify 会主动跳过本进程的窗口（不能误关自己的界面），
+/// 所以同进程弹窗永远测不出结果 —— 这是第一版实验失败的原因。
+/// </summary>
+internal static class DismissTest
+{
+    public static int Run()
+    {
+        uint mods = NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT | NativeMethods.MOD_SHIFT;
+        string combo = KeyCombo.Format(mods, 0x7A);
+
+        Console.WriteLine("=== 自动取消（ESC）验证 ===");
+        Console.WriteLine($"靶子键: {combo}");
+        Console.WriteLine();
+
+        var psi = new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!, "--popup-child")
+        {
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        using var child = System.Diagnostics.Process.Start(psi)!;
+        string? hello = child.StandardOutput.ReadLine();
+        Console.WriteLine($"[1] 靶子进程 PID {child.Id} 就绪信号: {hello ?? "(无)"}");
+        if (hello != "READY") { try { child.Kill(); } catch { } return 1; }
+
+        Thread.Sleep(400);
+
+        try
+        {
+            using var fast = new FastIdentify();
+            var res = fast.Identify(new[] { (mods, 0x7Au) }, Array.Empty<ProcInfo>());
+            Console.WriteLine($"[2] 归因进程数={res.AttributionByPid.Count}（应为 1，指向靶子进程）");
+
+            // 等 ESC 生效
+            for (int i = 0; i < 20 && !child.HasExited; i++) Thread.Sleep(100);
+
+            bool closed = child.HasExited;
+            Console.WriteLine($"[3] 靶子弹窗已被关闭={closed}");
+            Console.WriteLine();
+
+            if (res.AttributionByPid.Count == 1 && closed)
+            {
+                Console.WriteLine(">>> 通过: 弹窗被自动按 ESC 取消，用户无需手动关闭");
+                return 0;
+            }
+            if (!closed)
+            {
+                Console.WriteLine(">>> 失败: 弹窗仍未关闭");
+                return 2;
+            }
+            Console.WriteLine(">>> 归因与取消均成功");
+            return 0;
+        }
+        finally
+        {
+            if (!child.HasExited) { try { child.Kill(); } catch { } }
+        }
+    }
+}
+
+/// <summary>靶子：注册热键，按下后弹窗，收到 ESC 即关闭并退出进程。</summary>
+internal static class PopupChild
+{
+    public static int Run()
+    {
+        uint mods = NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT | NativeMethods.MOD_SHIFT;
+        Application.EnableVisualStyles();
+
+        var popup = new Form
+        {
+            Text = "HotkeyTriage Popup Probe",
+            Width = 420,
+            Height = 240,
+            StartPosition = FormStartPosition.Manual,
+            Location = new Point(-7000, -7000),   // 屏幕外，不打扰桌面
+            ShowInTaskbar = false,
+            KeyPreview = true,
+        };
+        popup.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) popup.Close(); };
+        popup.FormClosed += (_, _) => Application.ExitThread();
+
+        Application.AddMessageFilter(new HotkeyFilter(() =>
+        {
+            popup.Show();
+            popup.Activate();
+        }));
+
+        if (!NativeMethods.RegisterHotKey(IntPtr.Zero, 1, mods, 0x7A))
+            return 1;
+
+        Console.WriteLine("READY");
+        Console.Out.Flush();
+        Application.Run(new ApplicationContext());
+        return 0;
+    }
+}
+
+internal sealed class HotkeyFilter(Action onHotkey) : IMessageFilter
+{
+    private const int WM_HOTKEY = 0x0312;
+    public bool PreFilterMessage(ref Message m)
+    {
+        if (m.Msg == WM_HOTKEY) onHotkey();
+        return false;
     }
 }

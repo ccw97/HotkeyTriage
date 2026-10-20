@@ -37,7 +37,7 @@ public sealed class DeepScanDialog : Form
         Width = 84,
         Height = 34,
         CornerRadius = 7,
-        BackColor = Color.FromArgb(236, 238, 242),
+        BackColor = UiTheme.SurfaceRaised,
         ForeColor = UiTheme.InkSoft,
     };
 
@@ -107,6 +107,12 @@ public sealed class DeepScanDialog : Form
         Controls.Add(_banner);
     }
 
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        HotkeyTriage.Core.Interop.NativeMethods.TryDarkTitleBar(Handle);
+    }
+
     private void PaintBanner(object? sender, PaintEventArgs e)
     {
         var g = e.Graphics;
@@ -115,18 +121,18 @@ public sealed class DeepScanDialog : Form
 
         var r = new Rectangle(0, 4, _banner.Width - 1, _banner.Height - 10);
         using var path = UiTheme.RoundedRect(r, 8);
-        using (var b = new SolidBrush(Color.FromArgb(254, 246, 240)))
+        using (var b = new SolidBrush(Color.FromArgb(43, 34, 22)))
             g.FillPath(b, path);
-        using (var p = new Pen(Color.FromArgb(247, 214, 191)))
+        using (var p = new Pen(Color.FromArgb(85, 66, 42)))
             g.DrawPath(p, path);
 
         // 左侧竖条强调
-        using (var b = new SolidBrush(Color.FromArgb(217, 119, 6)))
+        using (var b = new SolidBrush(UiTheme.Amber))
             g.FillRectangle(b, r.X + 1, r.Y + 12, 3, r.Height - 24);
 
         var textRect = new Rectangle(r.X + 18, r.Y + 10, r.Width - 32, r.Height - 16);
         TextRenderer.DrawText(g, BannerText, UiTheme.Body(9F),
-            textRect, Color.FromArgb(146, 64, 14),
+            textRect, Color.FromArgb(227, 179, 65),
             TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.WordBreak
             | TextFormatFlags.NoPrefix);
     }

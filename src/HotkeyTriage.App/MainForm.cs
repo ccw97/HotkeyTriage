@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using HotkeyTriage.Core.Act;
 using HotkeyTriage.Core.Attribute;
 using HotkeyTriage.Core.Discover;
+using HotkeyTriage.Core.Interop;
 using HotkeyTriage.Core.Probe;
 
 namespace HotkeyTriage.App;
@@ -85,7 +86,24 @@ public sealed class MainForm : Form
         _appTree.NodeMouseDoubleClick += OnAppNodeDoubleClick;
         _tabBar.SelectedIndexChanged += (_, _) => SwitchTab();
 
+        // 点缩进区（三角所在位置）展开/收起：ShowPlusMinus 关了，得自己接管点击
+        _sysTree.NodeMouseClick += OnTreeExpandClick;
+        _appTree.NodeMouseClick += OnTreeExpandClick;
+
         Load += async (_, _) => { Log("Form Load 触发"); await QuickScanAsync(); };
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        NativeMethods.TryDarkTitleBar(Handle);   // 标题栏跟随深色，避免上白下黑割裂
+    }
+
+    private static void OnTreeExpandClick(object? sender, TreeNodeMouseClickEventArgs e)
+    {
+        if (e.Node == null) return;
+        if (e.Node.Nodes.Count == 0) return;
+        if (e.X < e.Node.Bounds.X - 4) e.Node.Toggle();
     }
 
     // ── 构建视觉 ───────────────────────────────────────────
@@ -169,7 +187,7 @@ public sealed class MainForm : Form
 
     private void BuildStatusBar()
     {
-        _statusBar.BackColor = Color.FromArgb(250, 250, 251);
+        _statusBar.BackColor = UiTheme.SurfaceAlt;
         _statusBar.Paint += (_, e) =>
         {
             using var pen = new Pen(UiTheme.Border);
@@ -190,15 +208,20 @@ public sealed class MainForm : Form
         tv.BackColor = UiTheme.Surface;
         tv.ForeColor = UiTheme.InkSoft;
         tv.Font = UiTheme.Body(9F);
-        tv.DrawMode = TreeViewDrawMode.OwnerDrawText;
+        tv.DrawMode = TreeViewDrawMode.OwnerDrawAll;   // 背景/展开符/文字全部自绘，才能染成深色
         tv.FullRowSelect = true;
         tv.HideSelection = false;
         tv.ShowLines = false;
         tv.ShowRootLines = false;
-        tv.ShowPlusMinus = true;
-        tv.ItemHeight = 30;
-        tv.Indent = 18;
+        tv.ShowPlusMinus = false;                      // 自绘三角，不用系统的那套
+        tv.ItemHeight = 32;
+        tv.Indent = 20;
         tv.Scrollable = true;
+
+        // 滚动条跟随深色主题（否则浅色滚动条会在深底上非常扎眼）
+        void Apply() => NativeMethods.SetWindowTheme(tv.Handle, "DarkMode_Explorer", null);
+        if (tv.IsHandleCreated) Apply();
+        else tv.HandleCreated += (_, _) => Apply();
     }
 
     private static void StyleEmpty(Label l, string text)
@@ -220,7 +243,8 @@ public sealed class MainForm : Form
 
     /// <summary>
     /// 节点文本用 '\t' 分段：[主文本] \t [次要] \t [更次要]。
-    /// 主文本固定列宽，保证键名纵向对齐；次要文本灰色，形成信息层次。
+    /// OwnerDrawAll 下背景、展开三角、文字全部自绘 —— 这是深色主题能成立的前提，
+    /// 因为系统在 OwnerDrawText 模式下会用浅色画行背景。
     /// </summary>
     private void DrawNode(object? sender, DrawTreeNodeEventArgs e)
     {
@@ -233,17 +257,50 @@ public sealed class MainForm : Form
         var parts = e.Node.Text.Split('\t');
         var mainFont = isGroup ? _fontGroup : _fontKey;
         var mainColor = selected ? Color.White : (isGroup ? UiTheme.Ink : UiTheme.InkSoft);
-        var subColor = selected ? Color.FromArgb(216, 228, 250) : UiTheme.Muted;
-        var faintColor = selected ? Color.FromArgb(196, 212, 244) : UiTheme.Faint;
+        var subColor = selected ? Color.FromArgb(201, 216, 242) : UiTheme.Muted;
+        var faintColor = selected ? Color.FromArgb(159, 180, 216) : UiTheme.Faint;
 
         const int FLAGS = (int)(TextFormatFlags.Left | TextFormatFlags.VerticalCenter
                                | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
 
-        int x = e.Bounds.X;
         int y = e.Bounds.Y;
         int h = e.Bounds.Height;
 
-        // 主列：分组自适应，叶子固定 150px 对齐
+        // ── 行背景 ──
+        var row = new Rectangle(4, y, Math.Max(0, tv.ClientSize.Width - 12), h - 2);
+        if (selected)
+        {
+            using var path = UiTheme.RoundedRect(row, 6);
+            using var b = new SolidBrush(UiTheme.SelectBg);
+            g.FillPath(b, path);
+            using var bar = new SolidBrush(UiTheme.Accent);
+            g.FillRectangle(bar, row.X + 2, row.Y + 6, 3, row.Height - 12);
+        }
+        else if (isGroup)
+        {
+            using var b = new SolidBrush(UiTheme.SurfaceRaised);
+            g.FillRectangle(b, row);
+        }
+        else
+        {
+            using var b = new SolidBrush(UiTheme.Surface);
+            g.FillRectangle(b, row);
+        }
+
+        // ── 展开三角（替代系统 +/-）──
+        int x = e.Bounds.X;
+        if (e.Node.Nodes.Count > 0)
+        {
+            int cx = x - 14;
+            int cy = y + h / 2;
+            Point[] pts = e.Node.IsExpanded
+                ? new[] { new Point(cx - 4, cy - 2), new Point(cx + 4, cy - 2), new Point(cx, cy + 3) }
+                : new[] { new Point(cx - 2, cy - 4), new Point(cx - 2, cy + 4), new Point(cx + 3, cy) };
+            using var b = new SolidBrush(selected ? Color.White : UiTheme.Faint);
+            g.FillPolygon(b, pts);
+        }
+
+        // ── 主列 ──
         int mainW = isGroup
             ? TextRenderer.MeasureText(g, parts[0], mainFont).Width + 12
             : 150;
@@ -252,6 +309,7 @@ public sealed class MainForm : Form
             (TextFormatFlags)FLAGS);
         x += mainW;
 
+        // ── 次要列 / 第三列 ──
         for (int i = 1; i < parts.Length && x < tv.ClientSize.Width - 4; i++)
         {
             if (string.IsNullOrEmpty(parts[i])) continue;
@@ -443,8 +501,9 @@ public sealed class MainForm : Form
         }
 
         var confirm = MessageBox.Show(this,
-            "快速识别会模拟按下每个被占用的热键，因此会触发占用者的功能。\n" +
+            "快速识别会模拟按下每个被占用的热键，因此会真的触发对方功能。\n" +
             "（微信会弹截图框、录屏开始录、音乐切歌）\n\n" +
+            "每个键触发后会自动按 ESC 把弹窗收回，但少数程序不响应 ESC。\n" +
             "不会关闭任何程序。过程中请勿操作键盘。\n\n继续？",
             "快速识别", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
         if (confirm != DialogResult.Yes) return;
@@ -516,6 +575,19 @@ public sealed class MainForm : Form
             unk.Nodes.Add($"说明\t{hint}");
             foreach (var key in unattributed)
                 unk.Nodes.Add($"{KeyCombo.Format(key.Mods, key.Vk)}\t来源未知");
+
+            // 钩子型占用者在用户态没有任何可反查的接口，只能给"可疑对象"而不是结论
+            var suspects = HookSuspects.Running(_lastCandidates);
+            if (suspects.Count > 0)
+            {
+                var s = unk.Nodes.Add($"可疑对象\t{ suspects.Count } 个已知钩子型软件在运行");
+                foreach (var name in suspects)
+                    s.Nodes.Add($"{name}\t退出它后重试");
+            }
+            else
+            {
+                unk.Nodes.Add("排查建议\t可能是钩子型软件（AHK / 录屏 / 输入法），退出后重试");
+            }
             unk.Expand();
         }
 

@@ -73,5 +73,41 @@ public static class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern int GetWindowTextLengthW(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>绕过前台窗口锁定，强制把某窗口设为前台（快速识别取消弹窗时需要）。</summary>
+    [DllImport("user32.dll")]
+    public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    [DllImport("kernel32.dll")]
+    public static extern uint GetCurrentThreadId();
+
+    // ---- 深色主题 ----
+
+    /// <summary>让 TreeView 等控件的滚动条跟随系统深色主题（Win10 1809+）。</summary>
+    [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+    public static extern int SetWindowTheme(IntPtr hWnd, string? pszSubAppName, string? pszSubIdList);
+
+    /// <summary>标题栏深色。属性 20 = DWMWA_USE_IMMERSIVE_DARK_MODE（旧版本为 19）。</summary>
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+
+    public static void TryDarkTitleBar(IntPtr hwnd)
+    {
+        int on = 1;
+        if (DwmSetWindowAttribute(hwnd, 20, ref on, sizeof(int)) != 0)
+            DwmSetWindowAttribute(hwnd, 19, ref on, sizeof(int));
+    }
 }
 

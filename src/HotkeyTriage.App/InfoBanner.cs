@@ -10,10 +10,10 @@ namespace HotkeyTriage.App;
 /// </summary>
 public sealed class InfoBanner : Control
 {
-    public Color Tint { get; set; } = Color.FromArgb(239, 246, 255);
-    public Color Line { get; set; } = Color.FromArgb(191, 219, 254);
+    public Color Tint { get; set; } = Color.FromArgb(26, 39, 64);
+    public Color Line { get; set; } = Color.FromArgb(47, 70, 104);
     public Color Bar { get; set; } = UiTheme.Accent;
-    public Color Ink { get; set; } = Color.FromArgb(30, 64, 175);
+    public Color Ink { get; set; } = Color.FromArgb(169, 198, 255);
 
     public InfoBanner()
     {
@@ -60,17 +60,17 @@ public sealed class InfoBanner : Control
         Text = text;
         if (warn)
         {
-            Tint = Color.FromArgb(254, 246, 240);
-            Line = Color.FromArgb(247, 214, 191);
-            Bar = Color.FromArgb(217, 119, 6);
-            Ink = Color.FromArgb(146, 64, 14);
+            Tint = Color.FromArgb(43, 34, 22);
+            Line = Color.FromArgb(85, 66, 42);
+            Bar = UiTheme.Amber;
+            Ink = Color.FromArgb(227, 179, 65);
         }
         else
         {
-            Tint = Color.FromArgb(239, 246, 255);
-            Line = Color.FromArgb(191, 219, 254);
+            Tint = Color.FromArgb(26, 39, 64);
+            Line = Color.FromArgb(47, 70, 104);
             Bar = UiTheme.Accent;
-            Ink = Color.FromArgb(30, 64, 175);
+            Ink = Color.FromArgb(169, 198, 255);
         }
         Invalidate();
     }

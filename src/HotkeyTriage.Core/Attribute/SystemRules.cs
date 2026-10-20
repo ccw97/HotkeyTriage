@@ -37,6 +37,7 @@ public static class SystemRules
     private const uint VK_V = 0x56;
     private const uint VK_X = 0x58;
     private const uint VK_S = 0x53;
+    private const uint VK_F12 = 0x7B;
 
     /// <summary>系统保留键：不可禁用，禁止进入任何关闭/注入流程</summary>
     private static readonly Dictionary<(uint mods, uint vk), SystemHotkeyInfo> _reserved = new()
@@ -82,6 +83,14 @@ public static class SystemRules
             return r;
         if (_disableable.TryGetValue((mods, vk), out var d))
             return d;
+
+        // F12 永久保留给调试器（微软文档：The F12 key is reserved for use by the debugger
+        // at all times）。后果：裸 F12 / Shift+F12 的 RegisterHotKey 一律返回 1409，
+        // 看起来像"被占用"，实际没有任何拥有者，也永远不会产生 WM_HOTKEY。
+        // 实测：F12/Shift+F12 = TAKEN，Ctrl+F12/Alt+F12 = FREE，且模拟该键捕获 0 条。
+        // 这是探测假阳性，必须在这里摘掉，否则会永远挂在"无法归因"里。
+        if (vk == VK_F12 && (mods & (MOD_CTRL | MOD_ALT)) == 0)
+            return new(SystemKind.Reserved, "系统保留", "F12 保留给调试器（无真实占用者）", "");
 
         // Win+ 前缀兜底：未在表中的 Win+ 组合归为系统壳热键。
         // 单独成组，避免与「可关闭的系统功能」混在一棵树上，
