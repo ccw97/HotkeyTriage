@@ -109,5 +109,41 @@ public static class NativeMethods
         if (DwmSetWindowAttribute(hwnd, 20, ref on, sizeof(int)) != 0)
             DwmSetWindowAttribute(hwnd, 19, ref on, sizeof(int));
     }
+
+    // ---- 读取 exe 自带的菜单资源（用于取"快捷键 → 功能名"）----
+    // LOAD_LIBRARY_AS_DATAFILE 只映射资源、不执行任何代码，对目标程序零风险。
+
+    public const uint LOAD_LIBRARY_AS_DATAFILE = 0x00000002;
+    public const uint MF_BYPOSITION = 0x00000400;
+    public static readonly IntPtr RT_MENU = 4;
+
+    public delegate bool EnumResNameProc(IntPtr hModule, IntPtr lpType, IntPtr lpName, IntPtr lParam);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr LoadLibraryExW(string path, IntPtr hFile, uint flags);
+
+    [DllImport("kernel32.dll")]
+    public static extern bool FreeLibrary(IntPtr hModule);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool EnumResourceNamesW(IntPtr hModule, IntPtr lpType, EnumResNameProc cb, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr LoadMenuW(IntPtr hModule, IntPtr lpName);
+
+    [DllImport("user32.dll")]
+    public static extern bool DestroyMenu(IntPtr hMenu);
+
+    [DllImport("user32.dll")]
+    public static extern int GetMenuItemCount(IntPtr hMenu);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetMenuStringW(IntPtr hMenu, uint uIdItem, StringBuilder lpString, int nMax, uint flags);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetSubMenu(IntPtr hMenu, int nPos);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetWindowTextW(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 }
 

@@ -51,6 +51,9 @@ public sealed class MainForm : Form
     private HotkeyMap? _map;
     private List<ProcInfo> _lastCandidates = new();
 
+    private static readonly IReadOnlyDictionary<(uint Mods, uint Vk), string> EmptyFuncMap
+        = new Dictionary<(uint, uint), string>();
+
     private static void Log(string msg)
     {
         try
@@ -561,12 +564,35 @@ public sealed class MainForm : Form
         {
             var proc = _lastCandidates.FirstOrDefault(p => p.Pid == kv.Key);
             var name = proc?.ExeName ?? $"PID {kv.Key}";
-            var node = _appTree.Nodes.Add($"{name}\tPID {kv.Key}\t{kv.Value.Count} 个热键");
+
+            // 程序身份：公司名/产品名来自 exe 版本信息，窗口标题来自当前窗口
+            var info = proc != null ? AppInfoProvider.For(proc) : AppInfo.Empty(name);
+
+            // 功能名：从程序自带的菜单资源里解析（自绘 UI 的程序会返回空表）
+            var funcMap = proc != null
+                ? MenuHotkeyReader.Read(proc.FullPath)
+                : EmptyFuncMap;
+
+            var node = _appTree.Nodes.Add($"{name}\t{info.Vendor}\tPID {kv.Key}");
             node.Tag = kv.Key;
             node.ToolTipText = proc?.FullPath ?? "";
             node.Expand();
+
             foreach (var key in kv.Value)
-                node.Nodes.Add($"{KeyCombo.Format(key.Mods, key.Vk)}\t{name}");
+            {
+                var keyText = KeyCombo.Format(key.Mods, key.Vk);
+                if (funcMap.TryGetValue(key, out var func))
+                {
+                    // 有功能名：功能名（亮）+ 程序名（弱）
+                    node.Nodes.Add($"{keyText}\t{func}\t{name}");
+                }
+                else
+                {
+                    // 没有功能名：回落到程序身份，并把"这只是程序名"这件事用弱化色表达出来
+                    var tail = string.IsNullOrWhiteSpace(info.Company) ? "功能未知" : info.Company;
+                    node.Nodes.Add($"{keyText}\t{name}\t{tail}");
+                }
+            }
         }
 
         if (unattributed.Count > 0)
@@ -654,4 +680,23 @@ public sealed class MainForm : Form
 
     /// <summary>供离屏截图/自动化切换页签用。</summary>
     public void SelectTab(int index) => _tabBar.Select(index);
+
+    /// <summary>
+    /// 供离屏截图预览「功能名 / 程序身份」两列的渲染效果：
+    /// 用一个真实 exe 构造合成归因，走与真实结果完全相同的绘制路径。
+    /// </summary>
+    public void PreviewAttribution(string exePath)
+    {
+        const int fakePid = 4242;
+        var exeName = Path.GetFileName(exePath).ToLowerInvariant();
+        _lastCandidates = new List<ProcInfo> { new(fakePid, exeName, exePath, true) };
+
+        var attribution = new Dictionary<int, List<(uint Mods, uint Vk)>>
+        {
+            // Ctrl+N 在记事本里能解析出「新建」；Alt+A 解析不到，用来验证回落分支
+            [fakePid] = new() { (NativeMethods.MOD_CONTROL, 0x4E), (NativeMethods.MOD_ALT, 0x41) },
+        };
+        FillAppTreeFromAttribution(attribution, Array.Empty<(uint, uint)>(), "");
+        SelectTab(1);
+    }
 }

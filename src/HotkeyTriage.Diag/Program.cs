@@ -9,8 +9,14 @@ using HotkeyTriage.Core.Probe;
 
 if (args.Length >= 2 && args[0] == "--shot")
 {
-    UiShot.Capture(args[1], args.Length >= 3 && int.TryParse(args[2], out var ti) ? ti : 0);
+    UiShot.Capture(args[1], args.Length >= 3 && int.TryParse(args[2], out var ti) ? ti : 0,
+        args.Length >= 4 ? args[3] : null);
     return 0;
+}
+
+if (args.Length >= 2 && args[0] == "--menu-lab")
+{
+    return HotkeyTriage.Diag.MenuLab.Run(args[1]);
 }
 
 if (args.Length >= 1 && args[0] == "--popup-child")
@@ -96,7 +102,7 @@ internal struct MSG
 /// <summary>把主窗口离屏渲染成 PNG，用于在无交互桌面时检查排版。</summary>
 internal static class UiShot
 {
-    public static void Capture(string path, int tab = 0)
+    public static void Capture(string path, int tab = 0, string? previewExe = null)
     {
         var t = new Thread(() =>
         {
@@ -117,7 +123,8 @@ internal static class UiShot
                 Thread.Sleep(60);
             }
 
-            if (tab > 0) { f.SelectTab(tab); Application.DoEvents(); Thread.Sleep(120); }
+            if (previewExe != null) { f.PreviewAttribution(previewExe); Application.DoEvents(); Thread.Sleep(200); }
+            else if (tab > 0) { f.SelectTab(tab); Application.DoEvents(); Thread.Sleep(120); }
 
             using var bmp = new Bitmap(f.Width, f.Height);
             f.DrawToBitmap(bmp, new Rectangle(0, 0, f.Width, f.Height));
