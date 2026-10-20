@@ -1,0 +1,10 @@
+# 本项目为 Windows 独占工具，源码在工作区保持 CRLF。
+# 这里只标记二进制文件，避免 git 对它们做行尾/文本处理；
+# 不做全局 text=auto，是为了不让首次 checkout 产生大面积"仅行尾变化"的假 diff。
+
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.dll   binary
+*.exe   binary
+*.zip   binary
